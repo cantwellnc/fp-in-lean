@@ -290,3 +290,283 @@ def posOrNegThree (s : Sign) :
 
 -- question: can i write the type of this function separetly from
 -- the impl? I can't seem to find the right way to do so..
+
+-- Linked lists
+-- The List dt in lean has a special syntax.
+
+def primesUnder10 : List Nat := [2,3,5,7]
+
+-- List is inductive
+inductive myList (α : Type) where
+  | nil : myList α
+  | cons : α -> myList α -> myList α
+
+-- so [...] is a nicer way to write cons(cons(cons ... (nil)))
+
+
+def length2 (α : Type) (xs : List α ) : Nat :=
+  match xs with
+    | List.nil => 0
+    | List.cons _ ys => Nat.succ (length2 α ys)
+
+#eval length2 Int [1,2,3]
+
+
+-- or alternate syntax for pattern matching on lists:
+
+def length3 (α : Type) (xs : List α ) : Nat :=
+  match xs with
+    | [] => 0
+    | y :: ys => Nat.succ (length3 α ys)
+
+
+-- it's good style to put type parameters as 'implicit' arguments
+def length4 {α : Type} (xs : List α ) : Nat :=
+  match xs with
+    | [] => 0
+    | _ :: ys => Nat.succ (length4 ys)
+
+-- now when calling lean will just infer the value of α
+-- without us having to explicitly pass the type as an
+-- argument
+#check length4 [1, 2,3] -- Nat
+
+
+-- more builtin datatypes
+-- Option
+
+inductive myOption (α : Type) : Type where
+  | none : myOption α -- nothing
+  | some (val : α): myOption α -- or something or type α
+
+
+-- ex: find head of list, if it exists
+def head? {α : Type} (xs : List α ) : Option α :=
+  match xs with
+    | List.nil => Option.none
+    | y :: _ => Option.some y
+
+
+-- the real lean fn is List.head?, ? indicates option (just a convention)
+
+
+-- naming conventions!!!
+-- returns Option = myFun?
+-- crashes on invalid input = myFun!
+-- provides default when only option is failure = myFunD
+
+
+-- Prod structure
+-- generic way of joining values of two types together.
+
+structure myProd (α β : Type) : Type where
+  fst: α
+  snd:  β
+-- elems are (a ∈ α, b ∈ β )
+
+-- the builtin type Prod is usually written α × β
+def fives : (String × Int) := {fst := "five", snd := 5}
+-- but you can use an alternative constructor for less boilerplate
+def fives2 : (String × Int) := ("five", 5)
+
+-- both are right associative, so these are equal
+def sevens : String × Int × Nat := ("VII", 7, 4 + 3)
+def sevens2 : String × (Int × Nat) := ("VII", (7, 4 + 3))
+#eval sevens = sevens2
+
+-- Sum
+-- allows choice between multiple values of two types
+
+inductive mySum (α β : Type) : Type where
+  | inl : α -> mySum α β
+  | inr : β -> mySum α β
+
+-- another notation is α ⊕ β
+-- dog or cat names
+def PetName : Type := String ⊕ String
+
+-- in real programs, it's better to define a custom inductive
+-- type rather than using Sum
+
+-- can construct dog / cat names
+def animals : List PetName :=
+  [Sum.inl "Spot", Sum.inr "Tiger", Sum.inl "Fifi",
+   Sum.inl "Rex", Sum.inr "Floof"]
+
+-- and match on them
+
+def howManyDogs (pets : List PetName) : Nat :=
+  match pets with
+  | [] => 0
+  | Sum.inl _ :: rest => howManyDogs rest + 1
+  | Sum.inr _ :: rest => howManyDogs rest
+-- Function calls are evaluated before infix operators, so howManyDogs morePets + 1 is the same as (howManyDogs morePets) + 1
+
+
+-- Unit
+-- a type with one argless constructor, called unit.
+-- It describes a single value, constructed by calling the argless
+-- constructor.
+
+
+-- the proposition that is always true
+inductive myUnit : Type where
+  | unit : myUnit
+
+-- can be useful for data that is missing in polymorphic code.
+
+-- Additionally, because all Lean functions have arguments,
+-- zero-argument functions in other languages can be represented as
+-- functions that take a Unit argument.
+
+-- In a return position, the Unit type is similar to void in languages derived from C.
+
+
+-- Empty
+-- The Empty dt has no constructrors. It represents unreachable code.
+-- no series of calls can ever terminate with a value at type Empty.
+
+
+--- warnings:
+
+-- Not all definable structures or inductive types can have the type Type.
+
+-- ex: In particular, if a constructor takes an ARBITRARY type as an argument,
+-- then the inductive type must have a different type.
+inductive MyType : Type where
+  | ctor : (α : Type) → α → MyType
+  -- illegal for now
+-- instead, make type take it as param
+
+inductive MyType2 (α : Type) : Type where
+  | ctor : α -> MyType2 α -- don't forget type arg to type itself!
+
+-- legit when we provide a type arg ex: Nat
+def ofFive : MyType2 Nat := MyType2.ctor 5
+
+-- err: MyType2 : Type -> Type
+def ofFive2 : MyType2 := MyType2.ctor 5
+
+
+-- sometimes lean can't display stuff using eval. usually
+-- it will try and generate display code from the type of the expr,
+-- but for some types (ex: functions) this fails.
+-- this works fine:
+
+inductive WoodSplitters where
+  | axe
+  | maul
+  | froe
+
+#eval WoodSplitters.axe
+
+-- but this won't
+def allTools : List WoodSplitters := [
+  WoodSplitters.axe,
+  WoodSplitters.froe,
+  WoodSplitters.maul
+]
+
+#eval allTools -- tries to display list, and list wants display
+-- code for WoodSplitters to already exist, but Lean hasn't generated
+-- it yet :(
+
+-- you can make it gen the code ahead of time (instead of at eval time)
+-- by adding deriving Repr to your type defn.
+
+inductive Firewood where
+  | birch
+  | pine
+  | beech
+  deriving Repr -- yay
+
+def allWoods : List Firewood := [
+  Firewood.beech,
+  Firewood.pine,
+  Firewood.birch
+]
+
+#eval allWoods -- all good
+
+-- exercises
+
+-- last entry in a list
+def last? {α : Type} (xs : List α): Option α :=
+  match xs with
+  | [] => Option.none
+  | y :: [] => Option.some y
+  | _ :: ys => last? ys
+
+#eval last? ([]: List Nat)
+#eval last? [1, 2, 3]
+
+-- first entry in list that satisfies pred p
+def List.findFirst? {α : Type} (xs : List α ) (pred : α -> Bool) : Option α :=
+  match xs with
+  | [] => Option.none
+  | y :: ys => if pred y then Option.some y else List.findFirst? ys pred
+
+#eval [1,2,3].findFirst? even -- 2
+#eval [].findFirst? even -- none
+
+
+-- switch two fields in a pair
+
+def Prod.switch {α β : Type} (pair : α × β ): β × α  :=
+  match pair with
+  | (a, b) => (b, a)
+
+#eval (1, "two").switch
+
+-- rewrite petname to be a custom inductive type instead of a sum
+inductive PetName2 where
+  | dog (name : String) : PetName2
+  | cat (name : String) : PetName2
+
+#eval PetName2.dog "Joe"
+
+-- zip: combine two lists into a pair of lists
+-- as long as shorter input list
+def zip {α β  : Type} (xs: List α) (ys : List β ): List (α × β) :=
+  match xs, ys with
+  | _, [] => List.nil
+  | [] ,_ => List.nil
+  | x' :: xs', y' :: ys' => (x', y') :: zip xs' ys'
+
+#eval zip ([] : List Nat) [1]
+#eval zip [1] ([] : List Nat)
+#eval zip [1] ["2", "3"]
+#eval zip ["2", "3"] [1]
+#check zip [1] ["2", "3"]
+
+
+-- take first n
+def take {α : Type} (n : Nat) (xs: List α ) : List α :=
+  match n, xs with
+  | Nat.zero, _ => []
+  | _, [] => []
+  | Nat.succ n', y :: ys => y :: take n' ys
+
+
+#eval take 2 [1, 2, 3]
+#eval take 2 ([] : List Nat)
+#eval take 0 [1,2]
+
+
+-- distribute products over sums
+def dist {α β γ : Type} (x : α × (β ⊕ γ)) : (α × β) ⊕ (α × γ) :=
+  match x with
+  | (a, y) =>
+    match y with
+    | Sum.inl b => Sum.inl (a, b)
+    | Sum.inr g => Sum.inr (a, g)
+
+#check dist (1, (Sum.inl "Leo" : String ⊕ String))
+
+-- using analogy between types and arithmetic,
+-- turning multiplying by 2 into a sum
+
+def mul {α : Type} (b: Bool) (a: α ) : α ⊕ α :=
+  match b with
+  | true => Sum.inl a
+  | false => Sum.inl a
