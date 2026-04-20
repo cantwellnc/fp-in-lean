@@ -570,3 +570,131 @@ def mul {α : Type} (b: Bool) (a: α ) : α ⊕ α :=
   match b with
   | true => Sum.inl a
   | false => Sum.inl a
+
+
+-- Additional conveniences
+
+-- Implicit type params {α : Type} can often be omitted. makes
+-- highly polymorphic defns more readable.
+
+
+-- it's quite common to name an argument and then immediately use it with pattern matching.
+
+--  For instance, in length, the argument xs is used only in match.
+-- In these situations, the cases of the match expression can be written directly,
+--  without naming the argument at all.
+
+def length5 : List α -> Nat
+  | [] => 0
+  | _ :: ys => Nat.succ (length5 ys)
+
+-- can also be used with fns that take more than one arg
+def drop : Nat → List α → List α
+  | Nat.zero, xs => xs
+  | _, [] => []
+  | Nat.succ n, _ :: xs => drop n xs
+
+-- you can mix and match
+def fromOption (default : α ) : Option α -> α
+  | none => default
+  | some x => x
+
+-- stdlib version is Option.getD
+
+-- Local Definitions
+-- consider this
+def unzip : List (α × β) → List α × List β
+  | [] => ([], [])
+  | (x, y) :: xys =>
+    (x :: (unzip xys).fst, y :: (unzip xys).snd)
+    -- two recursive calls, but same value
+-- instead, use let!
+
+def unzip2 : List (α × β) → List α × List β
+  | [] => ([], [])
+  | (x, y) :: xys =>
+    let unzipped := unzip xys -- yay, computed once
+    (x :: unzipped.fst, y :: unzipped.snd)
+
+
+-- The biggest difference between let and def is that
+-- recursive let definitions must be explicitly indicated by writing let rec.
+def reverse (xs : List α) : List α :=
+  let rec helper : List α → List α → List α -- ex
+    | [], soFar => soFar
+    | y :: ys, soFar => helper ys (y :: soFar)
+  helper xs []
+
+-- simul matching is NOT the same as matchin on a pair. Lean tracks
+-- additional info in the latter case.
+
+-- this cannot be proven to terminate bc we match on
+-- (xs, ys) rather than xs, ys which prevents lean from
+-- using structural recursion to show the fn terminates.
+def sameLength (xs : List α) (ys : List β) : Bool :=
+  match (xs, ys) with
+  | ([], []) => true
+  | (x :: xs', y :: ys') => sameLength xs' ys'
+  | _ => false
+
+-- Nats can also be matched against directly. no need to use constructors
+def even3 : Nat -> Bool
+  | 0 => true
+  | n + 1 => not (even3 n)
+
+
+-- When using this syntax, the second argument to + should always be a literal Nat.
+-- Even though addition is commutative, flipping the arguments
+-- in a pattern can result in errors like the following:
+
+def halve : Nat → Nat
+  | 0 => 0
+  | 1 => 0
+  | 2 + n => halve n + 1
+
+
+-- Lambdas
+#check fun x => x + 1
+#check fun (x : Int)  => x + 1
+#check fun {α : Type} (x : α ) => x
+-- really simple ones can be written like this:
+#check (. + 1)
+-- creates a fn out of the closest set of parens
+#check (. + 5, 3)
+#check ((. + 5), 3)
+#eval (., .) 1 2
+
+
+-- Namespaces
+-- defined using ., ex. List.map vs. Array.map
+-- can def a fn in a namespace
+def Nat.double (x : Nat) : Nat := x + x
+
+-- or can create a namespace
+namespace NewNamespace
+def triple (x : Nat) : Nat := 3 * x
+def quadruple (x : Nat) : Nat := 2 * x + 2 * x
+end NewNamespace
+
+-- open it (use names without qualification)
+def timesTwelve (x : Nat) :=
+  open NewNamespace in -- makes ns available in the following expr
+  quadruple (triple x)
+
+-- Namespaces may additionally be opened for all following commands for the rest of the file,
+-- just omit 'in'
+
+-- if let is a thing (need then/else clauses still tho)
+
+-- string interp
+#eval s! "6 {5 + 2}"
+-- doesn't work with every expr
+#eval s! "6 {NewNamespace.triple}" -- no std way to convert fns to strings
+
+-- Just as the compiler maintains a table that describes how to display the
+-- result of evaluating expressions of various types, it maintains a table
+-- that describes how to convert values of various types into strings.
+--  The message failed to synthesize instance means that the Lean compiler
+-- didn't find an entry in this table for the given type.
+
+--  Pattern matching means that knowing how to create a value implies knowing how to consume it.
