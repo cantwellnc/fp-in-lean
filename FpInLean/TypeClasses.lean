@@ -283,7 +283,7 @@ def runAndPrint (req : Request String String): IO Unit :=
 instance: PrintHTTP (Request String String) where
   runAndPrint := runAndPrint
 
-#eval do {runAndPrint $ (Request.GET "/foo")}
-#eval do {runAndPrint $ (Request.PUT "/foo" "{\"my\":\"body\"}")}
-#eval do {runAndPrint $ (Request.POST "/foo" "{\"my\":\"body\"}")}
-#eval do {runAndPrint $ (Request.DELETE "/foo")}
+#eval do {runAndPrint  (Request.GET "/foo")}
+#eval do {runAndPrint (Request.PUT "/foo" "{\"my\":\"body\"}")}
+#eval do {runAndPrint (Request.POST "/foo" "{\"my\":\"body\"}")}
+#eval do {runAndPrint (Request.DELETE "/foo")}
